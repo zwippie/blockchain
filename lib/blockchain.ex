@@ -50,10 +50,8 @@ defmodule Blockchain do
     {blockchain, last_block(blockchain).index + 1}
   end
 
-  @todo "Guarantee ordering of block attributes when encoding to JSON"
-  @doc """
-  Creates a SHA-256 hash of a Block
-  """
+  # Creates a SHA-256 hash of a Block
+  # TODO: Guarantee ordering of block attributes when encoding to JSON
   defp hash(%Blockchain.Block{} = block) do
     :crypto.hash(:sha256, Poison.encode!(block))
     |> Base.encode16(case: :lower)
@@ -112,8 +110,11 @@ defmodule Blockchain do
   Determine if a given blockchain is valid
   """
   def valid_chain?(%Blockchain{} = blockchain) do
-    [last_block | reversed_chain] = Enum.reverse(blockchain.chain)
-    valid_chain?(reversed_chain, last_block)
+    blockchain.chain |> Enum.reverse |> valid_chain?
+  end
+
+  def valid_chain?([last_block | chain]) do
+    valid_chain?(chain, last_block)
   end
 
   defp valid_chain?([], _), do: true
@@ -123,5 +124,22 @@ defmodule Blockchain do
       not valid_proof?(last_block.proof, block.proof, block.previous_hash) -> false
       true -> valid_chain?(tail, block)
     end
+  end
+
+  @doc """
+  Determine the current saldo of a user, including current_transactions.
+  """
+  def saldo(%Blockchain{chain: chain, current_transactions: current_transactions}, user_id) do
+    Enum.reduce(chain, 0, fn block, acc -> acc + mutations(block.transactions, user_id) end) +
+    Enum.reduce(current_transactions, 0, fn block, acc -> acc + mutations(block.transactions, user_id) end)
+  end
+
+  defp mutations(transactions, user_id, acc \\ 0)
+  defp mutations([], _user_id, acc), do: acc
+  defp mutations([%{amount: amount, sender: sender_id} | tail], user_id, acc) when sender_id == user_id do
+    mutations(tail, user_id, acc - amount)
+  end
+  defp mutations([%{amount: amount, recipient: recipient_id} | tail], user_id, acc) when recipient_id == user_id do
+    mutations(tail, user_id, acc + amount)
   end
 end

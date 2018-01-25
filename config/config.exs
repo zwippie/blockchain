@@ -28,3 +28,6 @@ use Mix.Config
 # here (which is why it is important to import them last).
 #
 #     import_config "#{Mix.env}.exs"
+
+config :blockchain,
+  cowboy_port: (System.get_env("PORT") || "4001") |> String.to_integer
